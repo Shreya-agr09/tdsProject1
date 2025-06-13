@@ -1,0 +1,44 @@
+# Thread URL: [https://discourse.onlinedegree.iitm.ac.in/t/live-session-agenda-30-01-2025/165830](https://discourse.onlinedegree.iitm.ac.in/t/live-session-agenda-30-01-2025/165830)
+
+Hi All,
+
+The agenda items for the live session 30/01/2025 are:
+
+1. What is Rest API?
+2. The FAST API library
+3. Basic Intro to CORS
+4. Creating JSON schema
+5. Function calling
+
+GMeet:
+
+Join with Google Meet
+
+meet.google.com/brz-ksac-evo
+
+Kind regards,  
+TDS Team
+⚠️ Could not get description due to model unavailability.
+Post URL: [https://discourse.onlinedegree.iitm.ac.in/t/live-session-agenda-30-01-2025/165830/1](https://discourse.onlinedegree.iitm.ac.in/t/live-session-agenda-30-01-2025/165830/1)
+---
+Hi All,
+
+The agenda items for the live session 30/01/2025 are:
+
+1. What is Rest API?
+2. The FAST API library
+3. Basic Intro to CORS
+4. Creating JSON schema
+5. Function calling
+
+GMeet:
+
+Join with Google Meet
+
+meet.google.com/brz-ksac-evo
+
+Kind regards,  
+TDS Team
+⚠️ Could not get description due to model unavailability.
+Post URL: [https://discourse.onlinedegree.iitm.ac.in/t/live-session-agenda-30-01-2025/165830/1](https://discourse.onlinedegree.iitm.ac.in/t/live-session-agenda-30-01-2025/165830/1)
+---
