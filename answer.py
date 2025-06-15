@@ -177,7 +177,6 @@ def extract_answer_and_links(raw_response: str):
         "links": links
     }
 
-
 def answer(question: str, image: Optional[str] = None):
     # Load the API key from the environment variable
     loaded_chunks, loaded_embeddings = load_embeddings()
