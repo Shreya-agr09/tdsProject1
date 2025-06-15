@@ -95,7 +95,17 @@ def get_image_description(image_path):
     #     image_data = img_file.read()
     response = client.models.generate_content(
         model="gemini-1.5-flash",
-        contents=[my_file, "Describe the content of this image in detail, focusing on any text, objects, or relevant features that could help answer questions about it."],
+        contents=[my_file, """You are an assistant specialized in analyzing educational images. Extract and clearly present all meaningful content from the image, including:
+
+        Questions or problem statements — transcribe them fully and accurately.
+
+        Code snippets — preserve correct formatting, indentation, and syntax.
+
+        Mathematical expressions or formulas — retain symbols and structure precisely.
+
+        Diagrams or visual processes — describe what the diagram shows, including labeled parts, arrows, steps, and the overall process it illustrates.
+
+        Ignore non-informative background elements, watermarks, or decorations."""],
     )
     return response.text
 
