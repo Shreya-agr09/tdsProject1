@@ -94,39 +94,46 @@ def get_image_description(image_path):
     # with open(os.path.join('pdsaiitm.github.io', image_path), 'rb') as img_file:
     #     image_data = img_file.read()
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash",
         contents=[my_file, "Describe the content of this image in detail, focusing on any text, objects, or relevant features that could help answer questions about it."],
     )
     return response.text
 
 def load_embeddings():
     """Load chunks and embeddings from npz file"""
-    data = np.load("embeddings.npz", allow_pickle=True)
+    data = np.load("embeddings3.npz", allow_pickle=True)
     return data["chunks"], data["embeddings"]
 
 def generate_llm_respose(question: str, context: str):
     """Generate a response from the LLM using the question and context."""
     client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
     # use system prompt to instruct the model to answer based on the context
-    system_prompt = """> You are a precise and helpful assistant answering questions from educational content.
+    system_prompt = """> You are a precise and helpful assistant answering questions from IITM BS educational discussion threads.
 
-> Use ONLY the given context to answer. Do not invent or assume anything.
+> You must use ONLY the provided context to answer. Do not invent, assume, or guess anything beyond the context.
 
-> Format:
-> - Keep answers short and focused (max 4–5 sentences).
-> - Use **Markdown** formatting.
-> - Include both the **thread URL** and the **specific post URL(s)** if available.
-> - Use bullet points or code blocks as needed for clarity.
-> - If multiple sources are relevant, cite all of them clearly.
+> Follow this strict format:
+> 
+> 1. Provide a clear and concise answer (maximum 4–5 sentences).
+> 2. Use **Markdown** formatting.
+> 3. If source links are mentioned in the context:
+>    - Include the **thread URL** (general discussion)
+>    - Include one or more **post URLs** (specific posts)
+>    - Format links like: [Label](https://...)
+> 4. If multiple posts contribute, summarize and cite them clearly using bullet points.
+> 5. Use bullet lists or code blocks if needed for clarity.
 
-> ⚠️ If context is insufficient to answer, respond exactly with:
+> ⚠️ IMPORTANT:
+> If the context does not contain enough information to answer the question, respond with exactly:
 > 
 > ```
-> Sorry to say but I don't know.Maybe you can try asking someone else.
+> Sorry to say but I don't know. Maybe you can try asking someone else.
 > ```
+> 
+> Do not try to be helpful or guess. Be factual and grounded in the given context only.
 """
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash",
         contents=[
             system_prompt,
             f"Context: {context}",
@@ -136,10 +143,40 @@ def generate_llm_respose(question: str, context: str):
             max_output_tokens=512,
             temperature=0.5,
             top_p=0.95,
-            top_k=40
+            top_k=20
         ),
     )
     return response.text
+
+def extract_answer_and_links(raw_response: str):
+    link_pattern = re.compile(r"\[([^\]]+)\]\((https?://[^\)]+)\)")
+    links = []
+    seen = set()
+
+    def smart_label(url):
+        # Try to extract post number if available
+        match = re.search(r'/(\d+)(?:/)?$', url.strip('/'))
+        if match:
+            return f"Post {match.group(1)}"
+        return "Related discussion"
+
+    def link_replacer(match):
+        text, url = match.groups()
+        if url not in seen:
+            label = text if text != url else smart_label(url)
+            links.append({"url": url, "text": label})
+            seen.add(url)
+        return ""  # Strip from answer
+
+    # Remove all links and collect them
+    cleaned = link_pattern.sub(link_replacer, raw_response)
+    cleaned = re.sub(r"[*\-•]+\s*", "", cleaned).strip()
+
+    return {
+        "answer": cleaned,
+        "links": links
+    }
+
 
 def answer(question: str, image: Optional[str] = None):
     # Load the API key from the environment variable
@@ -169,32 +206,28 @@ def answer(question: str, image: Optional[str] = None):
             question += " [Image description unavailable]"
     # Get the embedding for the question
     question_embedding = get_embedding(question)
+    
+
     # Calculate cosine similarity
     similarities = np.dot(loaded_embeddings, question_embedding) / (
         np.linalg.norm(loaded_embeddings, axis=1) * np.linalg.norm(question_embedding)
     )
+    for i in np.argsort(similarities)[-10:][::-1]:
+        sim_score = similarities[i]
+
     # Get the index of the 10 most similar chunks
     top_indices = np.argsort(similarities)[-10:][::-1]
+
     # Get the top chunks
     top_chunks = [loaded_chunks[i] for i in top_indices]
 
-    response  = generate_llm_respose(question, "\n".join(top_chunks))
-    return {
-        "question": question,
-        "response": response,
-        "top_chunks": top_chunks
-    }
+    raw_response  = generate_llm_respose(question, "\n".join(top_chunks))
+    return extract_answer_and_links(raw_response)
 
 @app.post("/api")
 async def api_answer(request: QuestionRequest):
     print("Type of request:", type(request))
     print("Request content:", request)
-    # try : 
-    #     data = await request.json()
-    #     print(data)
-    #     return answer(data.get("question"),data.get("image"))
-    # except Exception as e:
-    #     return {"error": str(e)}
     try:
         # Since `request` is a Pydantic model, you can access its fields directly
         question = request.question
@@ -208,5 +241,3 @@ async def api_answer(request: QuestionRequest):
 if __name__ == "__main__":
     import uvicorn 
     uvicorn.run(app, host="127.0.0.1", port=8000)
-  # Default port for FastAPI
-    # main()
