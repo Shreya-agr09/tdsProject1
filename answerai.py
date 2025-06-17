@@ -14,6 +14,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from openai import OpenAI as OpenAIClient
 from openai import OpenAI
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # Load environment variables
 load_dotenv(override=True)
@@ -29,6 +31,13 @@ client = OpenAI(
 )
 # FastAPI app
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins — good for dev
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Input model
