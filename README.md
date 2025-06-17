@@ -142,14 +142,10 @@ uvicorn main:app --reload
 ## 📷 Screenshots / Demo
 
 #### 🖥️ API Frontend Preview
-<p align="center">
-  <img src="assets/SS1.png" alt="Frontend Preview" width="400"/>
-</p>
+<img src="assets/SS1.png" alt="Frontend Preview" width="400"/>
 
 #### 🖥️ API Response Preview
-<p align="center">
-  <img src="assets/SS2.png" alt="API Response" width="400"/>
-</p>
+<img src="assets/SS2.png" alt="API Response" width="400"/>
 ---
 
 ## 🧠 Future Enhancements
