@@ -26,7 +26,7 @@ defaultTest:
         method: POST
         headers:
           Content-Type: application/json
-          Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImFnZ2Fyd2FscHJhZ3lhNTJAZ21haWwuY29tIn0.2kMJ1I2gEbNgRIDN_C4w5gieNeKXxWf7ozyD8JSLh_Q # Replace with your token
+          Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImphMjY0MTU2NUBnbWFpbC5jb20ifQ.fTYMRoSP64cwLMfoA_J_V7BdDnL0Gk4mvU6fZr5D8iU# Replace with your token
         body: |
           {
             "model": "gpt-3.5-turbo-0125",

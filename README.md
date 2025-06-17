@@ -141,9 +141,10 @@ uvicorn main:app --reload
 
 ## 📷 Screenshots / Demo
 
-> _Coming soon..._  
-You can add sample curl commands, Postman screenshots, or frontend previews here.
+# 🖥️ API Frontend Preview
 
+# 🖥️ API Response Preview
+![API Response](assets/SS1.png)
 ---
 
 ## 🧠 Future Enhancements
