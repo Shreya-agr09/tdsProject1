@@ -85,9 +85,9 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory:
 
 ```env
-OPENAI_API_KEY=your_openai_key
 GOOGLE_API_KEY=your_google_genai_key
 AIPIPE_TOKEN=your_aipipe_key_if_applicable
+DEBUG=True
 ```
 
 ### 4. Generate Embeddings (Optional, if not using `embeddingz3.npz`)

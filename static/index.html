@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TDS Virtual Assistant</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 700px;
+      margin: auto;
+    }
+    textarea, input[type=text] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background-color: #aaa;
+    }
+    .result {
+      margin-top: 20px;
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .link-list a {
+      display: block;
+      color: #007bff;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>📚 TDS Virtual Assistant</h2>
+  <textarea id="question" rows="4" placeholder="Enter your question..."></textarea>
+  <input type="text" id="link" placeholder="Paste a relevant link (optional)" />
+  <input type="file" id="image" accept="image/*" />
+  <br><br>
+  <button onclick="submitQuestion()" id="submitBtn">Ask</button>
+
+  <div class="result" id="result" style="display:none">
+    <h3>Answer:</h3>
+    <div id="answerText"></div>
+    <div class="link-list" id="linkList"></div>
+  </div>
+
+  <script>
+    async function submitQuestion() {
+      const question = document.getElementById('question').value;
+      const link = document.getElementById('link').value;
+      const fileInput = document.getElementById('image');
+      const submitBtn = document.getElementById('submitBtn');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Loading...';
+
+      let imageBase64 = '';
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        imageBase64 = await toBase64(file);
+      }
+
+      const response = await fetch('http://127.0.0.1:8000/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, link, image: imageBase64 })
+      });
+
+      const data = await response.json();
+      document.getElementById('result').style.display = 'block';
+      document.getElementById('answerText').innerText = data.answer;
+
+      const linkList = document.getElementById('linkList');
+      linkList.innerHTML = '';
+      (data.links || []).forEach(link => {
+        const a = document.createElement('a');
+        a.href = link.url;
+        a.textContent = link.text;
+        a.target = '_blank';
+        linkList.appendChild(a);
+      });
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Ask';
+    }
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = error => reject(error);
+      });
+    }
+  </script>
+</body>
+</html>

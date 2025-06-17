@@ -10,11 +10,15 @@ from dotenv import load_dotenv
 from google import genai
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from openai import OpenAI as OpenAIClient
 from openai import OpenAI
 
 # Load environment variables
-load_dotenv()
+load_dotenv(override=True)
+print("🔐 Using token:", os.getenv("AIPIPE_TOKEN"))
+
 
 # OpenAI embedding client (via AI Pipe)
 # Embedding client for AI Pipe
@@ -25,11 +29,14 @@ client = OpenAI(
 )
 # FastAPI app
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Input model
 class QuestionRequest(BaseModel):
     question: str
     image: Optional[str] = None
+    link: Optional[str] = None
+
 
 # Rate limiter for embedding
 class RateLimiter:
@@ -69,11 +76,14 @@ def get_embedding(text: str, max_retries: int = 3) -> List[float]:
                 model="text-embedding-3-small",
                 input=text
             )
+            if not response or not response.data:
+                raise ValueError("Embedding API returned empty or null response.")
             return response.data[0].embedding
         except Exception as e:
             if attempt == max_retries - 1:
                 raise Exception(f"Max retries exceeded: {e}")
             time.sleep(2 ** attempt)
+    # print("🔍 Raw embedding response:", response)
 
 def get_image_description(image_path):
     """Get a description of the image using Google GenAI."""
@@ -109,9 +119,8 @@ def generate_llm_response(question: str, context: str):
         api_key=os.getenv("AIPIPE_TOKEN"),
         base_url="https://aipipe.org/openrouter/v1"
     )
-    system_prompt = """> You are a precise and helpful assistant answering questions from educational content.
+    system_prompt = """> You are a precise assistant answering questions from educational content.
 > Use ONLY the given context to answer. Do not invent or assume anything.
-> Format:
 > - Keep answers short and focused (max 4–5 sentences).
 > - Use **Markdown** formatting.
 > - Include both the **thread URL** and the **specific post URL(s)** if available.
@@ -121,16 +130,18 @@ def generate_llm_response(question: str, context: str):
 Sorry to say but I don't know.Maybe you can try asking someone else.
 """
     response = client.chat.completions.create(
-        model="openai/gpt-3.5-turbo",
+        model="openai/gpt-3.5-turbo-0125",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Context: {context}\nQuestion: {question}"}
         ],
-        temperature=0.3,
-        max_tokens=512,
+        temperature=0,
+        max_tokens=400,
         top_p=0.95
         # top_k=20
     )
+    if not response or not hasattr(response, "choices") or not response.choices:
+        raise ValueError("ChatCompletion API returned empty or null response.")
     return response.choices[0].message.content
 
 def extract_answer_and_links(raw_response: str):
@@ -160,10 +171,10 @@ def extract_answer_and_links(raw_response: str):
         "answer": answer_text,
         "links": links
     }
-
-def answer(question: str, image: Optional[str] = None):
+def answer(question: str, image: Optional[str] = None, link: Optional[str] = None):
     chunks, embeddings = load_embeddings()
 
+    # 📸 Process image (if any)
     if image:
         try:
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
@@ -179,23 +190,108 @@ def answer(question: str, image: Optional[str] = None):
             print(f"⚠️ Failed to process image: {e}")
             question += " [Image description unavailable]"
 
+    # 💡 Get embedding for the question
     q_embed = get_embedding(question)
-    similarities = np.dot(embeddings, q_embed) / (
-        np.linalg.norm(embeddings, axis=1) * np.linalg.norm(q_embed)
-    )
-    top_indices = np.argsort(similarities)[-10:][::-1]
-    top_chunks = [chunks[i] for i in top_indices]
-    context = "\n".join(top_chunks)
-    raw_response = generate_llm_response(question, context)
-    return extract_answer_and_links(raw_response)
 
+    candidate_chunks, candidate_embeddings = [], []
+    thread_url, course_anchor = None, None
+
+    # 🔍 Discourse filtering
+    if link and "discourse.onlinedegree.iitm.ac.in" in link:
+        match = re.match(r"(https://discourse\.onlinedegree\.iitm\.ac\.in/t/[^/]+/\d+)", link)
+        if match:
+            thread_url = match.group(1)
+            print(f"📎 Matched Discourse thread: {thread_url}")
+            filtered = [(chunk, emb) for chunk, emb in zip(chunks, embeddings) if thread_url in chunk]
+            if filtered:
+                candidate_chunks, candidate_embeddings = zip(*filtered)
+                candidate_chunks, candidate_embeddings = list(candidate_chunks), list(candidate_embeddings)
+            else:
+                print("⚠️ No matching Discourse chunks found.")
+
+    # 🔍 Course content filtering
+    elif link and "tds.s-anand.net/#/" in link:
+        course_anchor = link.split("/")[-1].strip().lower()
+        print(f"📚 Matched course content section: {course_anchor}")
+        filtered = [
+            (chunk, emb) for chunk, emb in zip(chunks, embeddings)
+            if re.search(rf"^##\s+.*{re.escape(course_anchor)}", chunk, re.IGNORECASE | re.MULTILINE)
+        ]
+        if filtered:
+            candidate_chunks, candidate_embeddings = zip(*filtered)
+            candidate_chunks, candidate_embeddings = list(candidate_chunks), list(candidate_embeddings)
+        else:
+            print("⚠️ No matching course section found.")
+
+    # 🔁 Fallback to full dataset if nothing filtered
+    if not candidate_chunks:
+        candidate_chunks = chunks
+        candidate_embeddings = embeddings
+
+    candidate_embeddings = np.array(candidate_embeddings)
+    similarities = np.dot(candidate_embeddings, q_embed) / (
+        np.linalg.norm(candidate_embeddings, axis=1) * np.linalg.norm(q_embed)
+    )
+
+    top_indices = np.argsort(similarities)[-8:][::-1]
+    top_chunks = [candidate_chunks[i] for i in top_indices]
+    context = "\n".join(top_chunks)
+
+    # 💬 Call LLM
+    raw_response = generate_llm_response(question, context)
+    result = extract_answer_and_links(raw_response)
+
+    # ⛔ Skip all link injection if the model gave "Sorry to say..."
+    if result["answer"].strip().lower().startswith("sorry to say but i don't know"):
+        print("⚠️ Model expressed uncertainty — no link injection performed.")
+        return result
+
+    # ✅ Inject Discourse thread link (if actually used in context)
+    if thread_url and any(thread_url in chunk for chunk in top_chunks):
+        existing_urls = [l["url"] for l in result.get("links", [])]
+        if thread_url not in existing_urls:
+            result["links"].append({
+                "url": thread_url,
+                "text": "Discourse Thread"
+            })
+            if thread_url not in result["answer"]:
+                result["answer"] += f"\n\n📎 [View related discussion]({thread_url})"
+
+    # ✅ Inject course link based on section header
+    for chunk in top_chunks:
+        section_match = re.search(r"^##\s+(.+)$", chunk, re.MULTILINE)
+        if section_match:
+            section_title = section_match.group(1).strip()
+            anchor_text = section_title.split(':', 1)[1].strip() if ':' in section_title else section_title
+            anchor = anchor_text.lower().replace(' ', '-')
+            default_page_link = f"https://tds.s-anand.net/#/{anchor}"
+
+            if default_page_link not in [l["url"] for l in result.get("links", [])]:
+                result["links"].append({
+                    "url": default_page_link,
+                    "text": section_title
+                })
+                if default_page_link not in result["answer"]:
+                    result["answer"] += f"\n\n📚 For more: {default_page_link}"
+            break  # Only first matching section
+
+    print("\n📤 Final returned result:", result)
+    return result
+
+@app.get("/")
+async def serve_ui():
+    return FileResponse("static/index.html")
 
 @app.post("/api")
 async def api_answer(request: QuestionRequest):
     try:
-        return answer(request.question, request.image)
+        return answer(request.question, request.image,request.link)
     except Exception as e:
-        return {"error": str(e)}
+        return {
+        "answer": f"❌ Error: {str(e)}",
+        "links": [],
+        "error": str(e)
+    }
 
 if __name__ == "__main__":
     import uvicorn
