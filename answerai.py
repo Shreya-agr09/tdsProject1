@@ -7,7 +7,7 @@ import requests
 import numpy as np
 from typing import Optional, List
 from dotenv import load_dotenv
-from google import genai
+from google import generativeai as genai
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
