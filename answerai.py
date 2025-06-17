@@ -108,6 +108,11 @@ def get_image_description(image_path):
     return response.text
 
 def load_embeddings():
+    if not os.path.exists("embeddings3.npz"):
+        url = "https://github.com/Shreya-agr09/tdsProject1/blob/main/embeddings3.npz"
+        response = requests.get(url)
+        with open("embeddings3.npz", "wb") as f:
+            f.write(response.content)
     data = np.load("embeddings3.npz", allow_pickle=True)
     return data["chunks"], data["embeddings"]
 

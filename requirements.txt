@@ -1,16 +1,9 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "argparse",
-#     "fastapi",
-#     "httpx",
-#     "markdownify",
-#     "numpy",
-#     "semantic_text_splitter",
-#     "tqdm",
-#     "uvicorn",
-#     "google-genai",
-#     "pillow",
-#     "pydantic",
-# ]
-# ///
+fastapi
+uvicorn
+python-dotenv
+requests
+pydantic
+numpy
+mangum
+google-generativeai
+openai
