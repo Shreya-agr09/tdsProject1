@@ -146,6 +146,7 @@ uvicorn main:app --reload
 
 #### 🖥️ API Response Preview
 <img src="assets/SS2.png" alt="API Response" width="400"/>
+
 ---
 
 ## 🧠 Future Enhancements
